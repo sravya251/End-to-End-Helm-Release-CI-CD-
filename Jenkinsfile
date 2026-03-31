@@ -10,7 +10,10 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'cd app && docker build -t $IMAGE:$TAG .'
+                sh '''
+                docker build -t $IMAGE:$TAG -f Dockerfile .
+                docker tag $IMAGE:$TAG $IMAGE:latest
+                '''
             }
         }
 
@@ -24,6 +27,7 @@ pipeline {
                     sh '''
                     echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                     docker push $IMAGE:$TAG
+                    docker push $IMAGE:latest
                     '''
                 }
             }
@@ -32,7 +36,10 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
+                aws eks update-kubeconfig --region ap-south-1 --name eks-cluster
+                
                 helm upgrade --install myapp ./helm-chart \
+                --namespace dev --create-namespace \
                 --set image.repository=$IMAGE \
                 --set image.tag=$TAG
                 '''
@@ -41,9 +48,11 @@ pipeline {
 
         stage('Verify') {
             steps {
-                sh 'kubectl get pods'
-                sh 'kubectl get svc'
-                sh 'kubectl get ingress'
+                sh '''
+                kubectl get pods -n dev
+                kubectl get svc -n dev
+                kubectl get ingress -n dev
+                '''
             }
         }
     }
