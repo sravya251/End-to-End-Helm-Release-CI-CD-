@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = "sravya25/myapp"
-        TAG = "${BUILD_NUMBER}"
-    }
+    IMAGE = "sravyachinthakunta/myapp"
+    TAG = "${BUILD_NUMBER}"
+}
 
     stages {
 
