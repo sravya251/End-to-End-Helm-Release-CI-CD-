@@ -17,7 +17,6 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                cd app
                 docker build -t $IMAGE:$TAG .
                 docker tag $IMAGE:$TAG $IMAGE:latest
                 '''
