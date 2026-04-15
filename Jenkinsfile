@@ -8,13 +8,23 @@ pipeline {
 
     stages {
 
-        stage('Build') {
+        stage('Checkout') {
             steps {
-                sh 'cd app && docker build -t $IMAGE:$TAG .'
+                checkout scm
             }
         }
 
-        stage('Push') {
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                cd app
+                docker build -t $IMAGE:$TAG .
+                docker tag $IMAGE:$TAG $IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Login to DockerHub') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-cred',
@@ -23,13 +33,21 @@ pipeline {
                 )]) {
                     sh '''
                     echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                    docker push $IMAGE:$TAG
                     '''
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Push Image') {
+            steps {
+                sh '''
+                docker push $IMAGE:$TAG
+                docker push $IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Deploy with Helm') {
             steps {
                 sh '''
                 helm upgrade --install my-app ./helm-chart \
@@ -39,11 +57,13 @@ pipeline {
             }
         }
 
-        stage('Verify') {
+        stage('Verify Deployment') {
             steps {
-                sh 'kubectl get pods'
-                sh 'kubectl get svc'
-                sh 'kubectl get ingress'
+                sh '''
+                kubectl get pods
+                kubectl get svc
+                kubectl get ingress
+                '''
             }
         }
     }
