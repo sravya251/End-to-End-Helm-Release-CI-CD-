@@ -45,13 +45,29 @@ pipeline {
                 '''
             }
         }
-
-        stage('Deploy with Helm') {
+        stage('Check Helm') {
             steps {
                 sh '''
+                export PATH=$PATH:/var/jenkins_home/bin
+
+                echo "Checking Helm installation..."
+                which helm
+                helm version
+                '''
+            }
+        }
+
+
+        stage('Helm Deploy') {
+            steps {
+                sh '''
+                export PATH=$PATH:/var/jenkins_home/bin
+
+                echo "Starting Helm deployment..."
+
                 helm upgrade --install my-app ./helm-chart \
-                --set image.repository=$IMAGE \
-                --set image.tag=$TAG
+                  --set image.repository=sravyachinthakunta/my-app \
+                  --set image.tag=20
                 '''
             }
         }
