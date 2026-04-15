@@ -2,27 +2,15 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = "sravyachinthakunta/myapp"
+        IMAGE = "sravyachinthakunta/my-app"
         TAG = "${BUILD_NUMBER}"
-        NAMESPACE = "dev"
     }
 
     stages {
 
         stage('Build') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-cred',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
-                    sh '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-
-                    docker build -t $IMAGE:$TAG .
-                    docker tag $IMAGE:$TAG $IMAGE:latest
-                    '''
-                }
+                sh 'cd app && docker build -t $IMAGE:$TAG .'
             }
         }
 
@@ -35,9 +23,7 @@ pipeline {
                 )]) {
                     sh '''
                     echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-
                     docker push $IMAGE:$TAG
-                    docker push $IMAGE:latest
                     '''
                 }
             }
@@ -46,10 +32,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                aws eks update-kubeconfig --region ap-south-1 --name eks-cluster
-
-                helm upgrade --install myapp ./helm-chart \
-                --namespace $NAMESPACE --create-namespace \
+                helm upgrade --install my-app ./helm-chart \
                 --set image.repository=$IMAGE \
                 --set image.tag=$TAG
                 '''
@@ -58,12 +41,9 @@ pipeline {
 
         stage('Verify') {
             steps {
-                sh '''
-                kubectl get pods -n $NAMESPACE
-                kubectl get svc -n $NAMESPACE
-                kubectl get ingress -n $NAMESPACE
-                kubectl get hpa -n $NAMESPACE
-                '''
+                sh 'kubectl get pods'
+                sh 'kubectl get svc'
+                sh 'kubectl get ingress'
             }
         }
     }
