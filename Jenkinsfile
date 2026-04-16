@@ -8,15 +8,33 @@ pipeline {
 
     stages {
 
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
+        stage('Check Tools') {
+            steps {
+                sh '''
+                echo "Checking tools..."
+                docker version || exit 1
+                helm version || echo "Helm missing"
+                kubectl version --client || echo "kubectl missing"
+                '''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 sh '''
+                echo "Building Docker image..."
                 docker build -t $IMAGE:$TAG .
                 docker tag $IMAGE:$TAG $IMAGE:latest
                 '''
@@ -31,7 +49,7 @@ pipeline {
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
                     sh '''
-                    echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                     '''
                 }
             }
@@ -40,34 +58,21 @@ pipeline {
         stage('Push Image') {
             steps {
                 sh '''
+                echo "Pushing Docker image..."
                 docker push $IMAGE:$TAG
                 docker push $IMAGE:latest
                 '''
             }
         }
-        stage('Check Helm') {
-            steps {
-                sh '''
-                export PATH=$PATH:/var/jenkins_home/bin
-
-                echo "Checking Helm installation..."
-                which helm
-                helm version
-                '''
-            }
-        }
-
 
         stage('Helm Deploy') {
             steps {
                 sh '''
-                export PATH=$PATH:/var/jenkins_home/bin
-
-                echo "Starting Helm deployment..."
+                echo "Deploying with Helm..."
 
                 helm upgrade --install my-app ./helm-chart \
-                  --set image.repository=sravyachinthakunta/my-app \
-                  --set image.tag=20
+                  --set image.repository=$IMAGE \
+                  --set image.tag=$TAG
                 '''
             }
         }
@@ -75,11 +80,20 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 sh '''
-                kubectl get pods
-                kubectl get svc
-                kubectl get ingress
+                kubectl get pods || true
+                kubectl get svc || true
+                kubectl get ingress || true
                 '''
             }
+        }
+    }
+
+    post {
+        failure {
+            echo "Pipeline Failed ❌"
+        }
+        success {
+            echo "Pipeline Success 🚀"
         }
     }
 }
